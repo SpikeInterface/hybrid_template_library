@@ -11,7 +11,7 @@ concurrency:  # Cancel previous workflows on the same pull request
     
 
 jobs:
-  build-and-deploy:
+  deploy-web-service:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

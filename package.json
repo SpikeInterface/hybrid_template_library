@@ -1,8 +1,9 @@
 {
-  "name": "template_library",
+  "name": "hybrid_template_library",
   "description": "Library of templates to create hybrid data for spike sorting benchmarks",
   "version": "1.0.0",
   "author": "Heberto Mayorquin",
+  "homepage": "https://spikeinterface.github.io/hybrid_template_library",
   "license": "",
   "scripts": {
     "start": "react-scripts start",
