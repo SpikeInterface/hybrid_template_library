@@ -1,0 +1,116 @@
+/* General App styling */
+.App {
+  text-align: center;
+  width: 100%; /* Ensure the App fills the entire width */
+  padding: 20px; /* Add some padding around the app */
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+#code-container {
+  font-family: 'Fira Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  background-color: #ffffff00;
+  border-radius: 5px;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  width: calc(100% - 40px); /* Responsive width with margin */
+  margin: 20px auto; /* Centering with auto margins */
+  padding: 20px; /* Padding inside the container */
+  box-sizing: border-box; /* Includes padding in the element's total width and height */
+  font-size: 1.5em; /* Base font size in ems */
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Styling for container holding the row plots */
+.ColumnPlotContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 100px; /* Adjust space between each RowPlotContainer */
+  /* border: 2px solid red; Debugging: visualizes the outer boundary of the grid */
+}
+
+.RowPlotContainer {
+  display: grid;
+  grid-template-columns: 5% 50% 15% 30%;
+  /* border: 2px solid black; Debugging: visualizes the outer boundary of the grid */
+  justify-content: start; /* Aligns the grid horizontally (main axes) */
+}
+
+.RowPlotContainer > * {
+  max-width: 100%;
+  /* border: 2px solid rgb(43, 0, 233); Debugging: visualizes the outer boundary of the grid */
+}
+
+.RowPlotContainer .probe-plot {
+  box-sizing: border-box;
+  max-width: 200px;
+  /* max-width: 7.0vw;   */
+}
+
+.RowPlotContainer .table-plot {
+  align-self: center; /* Aligns the table vertically (cross axes) */
+  justify-self: start; /* Aligns the item to the start (left) of the grid cell */
+}
+
+
+
+/* Table styling */
+table {
+  border-collapse: collapse;
+  width: 90%; /* Responsive table width */
+  margin: 0 auto; /* Center table horizontally */
+}
+
+th, td {
+  border: 1px solid #ddd; /* Light grey border */
+  text-align: left;
+  padding: 8px;
+}
+
+th {
+  background-color: #f2f2f2; /* Light grey background for header */
+}
+
+
+.load-more-button {
+  padding: 10px 20px;
+  margin: 20px 0;
+  font-size: 16px;
+  cursor: pointer;
+}
+
