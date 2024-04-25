@@ -6,9 +6,8 @@ import RowPlotContainer from "./RowPlotContainer";
 import "../styles/App.css";
 
 function App() {
-  // const url = "https://spikeinterface-template-database.s3.us-east-2.amazonaws.com/test_templates";
-  const url = "http://localhost:8000/zarr_store.zarr";
-  // const url = "/zarr_store.zarr"
+  const url = "https://spikeinterface-template-database.s3.us-east-2.amazonaws.com/test_templates";
+  //const url = "http://localhost:8000/zarr_store.zarr";
   const storeRef = new HTTPStore(url);
   const [selectedTemplates, setSelectedTemplates] = useState(new Set()); // Updated to useState
   const [templateIndices, setTemplateIndices] = useState([]);
