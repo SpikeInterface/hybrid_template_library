@@ -9,7 +9,7 @@ import calculatePeakToPeakValues from "../utils/CalculationUtils";
 import { percentageToFilterChannels } from "../styles/StyleConstants";
 
 
-const RowPlotContainer = ({ templateIndex, storeRef, isSelected, toggleSelection }) => {
+const RowPlotContainer = ({ templateIndex, storeRef, dataDictionary, isSelected, toggleSelection }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [probeXCoordinates, setProbeXCoordinates] = useState([]);
   const [probeYCoordinates, setProbeYCoordinates] = useState([]);
@@ -22,6 +22,7 @@ const RowPlotContainer = ({ templateIndex, storeRef, isSelected, toggleSelection
   useEffect(() => {
     const loadData = async () => {
       try {
+
         const zarrGroup = await openGroup(storeRef);
         const probeGroup = await openGroup(storeRef, "probe", "r");
 
@@ -39,6 +40,7 @@ const RowPlotContainer = ({ templateIndex, storeRef, isSelected, toggleSelection
         const templateArray = await zarrGroup.getItem("templates_array");
         setTemplateArray(templateArray);
         const singleTemplate = await templateArray.get([templateIndex, null, null]);
+        
         const peakToPeakValues = calculatePeakToPeakValues(singleTemplate);
         const bestChannel = peakToPeakValues.indexOf(Math.max(...peakToPeakValues));
 
@@ -48,22 +50,32 @@ const RowPlotContainer = ({ templateIndex, storeRef, isSelected, toggleSelection
           .filter((index) => index !== null);
         setActiveIndices(_activeIndices);
 
-        // Set table data (mockup or real)
-        const data = [
-          { attribute: "Number of Samples", value: "855" },
-          { attribute: "Dataset", value: "IBL" },
-          { attribute: "Brain Location", value: "Hippocampus" },
-          { attribute: "Channel with max amplitude", value: bestChannel },
-          { attribute: "Amplitude", value: peakToPeakValues[bestChannel] },
-          { attribute: "Sampling Frequency", value: samplingFrequency },
-          { attribute: "Location", value: location },
-        ];
-        setTableData(data);
-
         // Set location based on best channel
         const locationX = xCoords.data[bestChannel];
         const locationY = yCoords.data[bestChannel];
         setLocation([locationX, locationY]);
+
+        // Set table data (mockup or real)
+        const brainArea = dataDictionary["brain_area"][templateIndex];
+        const NumberOfSpikes = dataDictionary["spikes_per_unit"][templateIndex]
+        const bestChannelID = dataDictionary["channel_ids"][bestChannel]
+        const UnitID = dataDictionary["unit_ids"][templateIndex]
+
+        const peakToPeakBestChannel = peakToPeakValues[bestChannel]
+        const peakToPeakBestChannelDecimalsRounded = peakToPeakBestChannel.toFixed(2)
+
+        const data = [
+          // { attribute: "Template Index", value: templateIndex},
+          // { attribute: "Channel with max amplitude", value: bestChannel },
+          { attribute: "UnitID", value: UnitID },
+          { attribute: "Number of Spikes", value: NumberOfSpikes },
+          { attribute: "Best ChannelID", value: bestChannelID},
+          { attribute: "Brain Location", value: brainArea},
+          { attribute: "Peak To Peak (mV)", value: peakToPeakBestChannelDecimalsRounded},
+          { attribute: "Depth (um)", value: location[1]},
+
+        ];
+        setTableData(data);
 
         setIsLoading(false);
       } catch (error) {
