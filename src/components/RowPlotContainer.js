@@ -71,7 +71,7 @@ const RowPlotContainer = ({ templateIndex, storeRef, dataDictionary, isSelected,
           { attribute: "Number of Spikes", value: NumberOfSpikes },
           { attribute: "Best ChannelID", value: bestChannelID},
           { attribute: "Brain Location", value: brainArea},
-          { attribute: "Peak To Peak (mV)", value: peakToPeakBestChannelDecimalsRounded},
+          { attribute: "Peak To Peak (uV)", value: peakToPeakBestChannelDecimalsRounded},
           { attribute: "Depth (um)", value: location[1]},
 
         ];
