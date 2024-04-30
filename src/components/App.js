@@ -8,6 +8,7 @@ import "../styles/App.css";
 //const url = "http://localhost:8000/zarr_store.zarr";
 const url = "https://spikeinterface-template-database.s3.us-east-2.amazonaws.com/test_templates";
 
+const url = process.env.TEST_URL || "https://s3.amazonaws.com/my-bucket/templates";
 
 
 function App() {

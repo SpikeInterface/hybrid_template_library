@@ -38,4 +38,14 @@ python -c "from http.server import HTTPServer, SimpleHTTPRequestHandler; import 
 ```
 
 
+Then you run the npm script to start the server and open the browser
+
+```bash
+export TEST_URL="http://localhost:8000/zarr_store.zarr"
+npm run start
+```
+
+
+
+
 
