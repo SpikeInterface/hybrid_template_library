@@ -5,19 +5,19 @@ import numpy as np
 
 from spikeinterface.core import Templates
 
-REGION_NAME = 'us-east-2'
+REGION_NAME = "us-east-2"
 HYBRID_BUCKET = "spikeinterface-template-database"
 
 
 def list_bucket_objects(
-    bucket : str,
-    boto_client : boto3.client,
-    prefix : str = "",
-    include_substrings : str | list[str] | None = None,
-    skip_substrings : str | list[str] | None = None
+    bucket: str,
+    boto_client: boto3.client,
+    prefix: str = "",
+    include_substrings: str | list[str] | None = None,
+    skip_substrings: str | list[str] | None = None,
 ):
     # get all objects for session from s3
-    paginator = boto_client.get_paginator('list_objects_v2')
+    paginator = boto_client.get_paginator("list_objects_v2")
     pages = paginator.paginate(Prefix=prefix, Bucket=bucket)
     keys = []
 
@@ -29,8 +29,8 @@ def list_bucket_objects(
             skip_substrings = [skip_substrings]
 
     for page in pages:
-        for item in page.get('Contents', []):
-            key = item['Key']
+        for item in page.get("Contents", []):
+            key = item["Key"]
             if include_substrings is None and skip_substrings is None:
                 keys.append(key)
             else:
@@ -45,7 +45,7 @@ def list_bucket_objects(
 
 def consolidate_datasets():
     ### Find datasets and create dataframe with consolidated data
-    bc = boto3.client('s3')
+    bc = boto3.client("s3")
 
     # Each dataset is stored in a zarr folder, so we look for the .zattrs files
     keys = list_bucket_objects(HYBRID_BUCKET, boto_client=bc, include_substrings=".zattrs")
@@ -88,17 +88,15 @@ def consolidate_datasets():
             brain_areas = ["unknwown"] * num_units
         new_entry = pd.DataFrame(
             data={
-                "dataset": dataset_list, 
-                "template_index": template_idxs, 
-                "best_channel_id": best_channels, 
-                "brain_area": brain_areas, 
+                "dataset": dataset_list,
+                "template_index": template_idxs,
+                "best_channel_id": best_channels,
+                "brain_area": brain_areas,
                 "depth": depths,
-                "amplitude": amps
+                "amplitude": amps,
             }
         )
-        templates_df = pd.concat(
-            [templates_df, new_entry]
-        )
+        templates_df = pd.concat([templates_df, new_entry])
 
     templates_df.to_csv("templates.csv", index=False)
 
