@@ -5,8 +5,8 @@ import numpy as np
 
 from spikeinterface.core import Templates
 
-REGION_NAME = "us-east-2"
 HYBRID_BUCKET = "spikeinterface-template-database"
+SKIP_TEST = True
 
 
 def list_bucket_objects(
@@ -48,7 +48,10 @@ def consolidate_datasets():
     bc = boto3.client("s3")
 
     # Each dataset is stored in a zarr folder, so we look for the .zattrs files
-    keys = list_bucket_objects(HYBRID_BUCKET, boto_client=bc, include_substrings=".zattrs")
+    exclude_substrings = ["test_templates"] if SKIP_TEST else None
+    keys = list_bucket_objects(
+        HYBRID_BUCKET, boto_client=bc, include_substrings=".zattrs", exclude_substrings=exclude_substrings
+    )
     datasets = [k.split("/")[0] for k in keys]
 
     templates_df = pd.DataFrame(
@@ -73,9 +76,9 @@ def consolidate_datasets():
         depths = np.zeros(num_units)
         amps = np.zeros(num_units)
 
-        if best_channels is not None:
-            best_channels = best_channels[:]
-            for i, best_channel_idx in enumerate(best_channels):
+        if best_channel_idxs is not None:
+            best_channel_idxs = best_channel_idxs[:]
+            for i, best_channel_idx in enumerate(best_channel_idxs):
                 depths[i] = channel_depths[best_channel_idx]
                 amps[i] = np.ptp(templates.templates_array[i, :, best_channel_idx])
         else:
