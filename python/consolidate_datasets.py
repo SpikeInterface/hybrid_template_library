@@ -2,7 +2,6 @@ import boto3
 import pandas as pd
 import zarr
 import numpy as np
-import sys
 from argparse import ArgumentParser
 
 from spikeinterface.core import Templates
