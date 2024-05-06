@@ -2,11 +2,16 @@ import boto3
 import pandas as pd
 import zarr
 import numpy as np
+import sys
+from argparse import ArgumentParser
 
 from spikeinterface.core import Templates
 
-HYBRID_BUCKET = "spikeinterface-template-database"
-SKIP_TEST = True
+parser = ArgumentParser(description="Consolidate datasets from spikeinterface template database")
+
+parser.add_argument("--dry-run", action="store_true", help="Dry run (no upload)")
+parser.add_argument("--no-skip-test", action="store_true", help="Skip test datasets")
+parser.add_argument("--bucket", type=str, help="S3 bucket name", default="spikeinterface-template-database")
 
 
 def list_bucket_objects(
@@ -43,34 +48,39 @@ def list_bucket_objects(
     return keys
 
 
-def consolidate_datasets():
+def consolidate_datasets(
+    dry_run: bool = False, skip_test_folder: bool = True, bucket="spikeinterface-template-database"
+):
     ### Find datasets and create dataframe with consolidated data
     bc = boto3.client("s3")
 
     # Each dataset is stored in a zarr folder, so we look for the .zattrs files
-    exclude_substrings = ["test_templates"] if SKIP_TEST else None
-    keys = list_bucket_objects(
-        HYBRID_BUCKET, boto_client=bc, include_substrings=".zattrs", exclude_substrings=exclude_substrings
-    )
+    skip_substrings = ["test_templates"] if skip_test_folder else None
+    keys = list_bucket_objects(bucket, boto_client=bc, include_substrings=".zattrs", skip_substrings=skip_substrings)
     datasets = [k.split("/")[0] for k in keys]
+    print(f"Found {len(datasets)} datasets to consolidate\n")
 
-    templates_df = pd.DataFrame(
-        columns=["dataset", "template_index", "best_channel_id", "brain_area", "depth", "amplitude"]
-    )
+    templates_df = None
 
     # Loop over datasets and extract relevant information
     for dataset in datasets:
         print(f"Processing dataset {dataset}")
-        zarr_path = f"s3://{HYBRID_BUCKET}/{dataset}"
+        zarr_path = f"s3://{bucket}/{dataset}"
         zarr_group = zarr.open_consolidated(zarr_path, storage_options=dict(anon=True))
 
         templates = Templates.from_zarr_group(zarr_group)
 
         num_units = templates.num_units
         dataset_list = [dataset] * num_units
+        dataset_path = [zarr_path] * num_units
         template_idxs = np.arange(num_units)
         best_channel_idxs = zarr_group.get("best_channels", None)
         brain_areas = zarr_group.get("brain_area", None)
+        peak_to_peaks = zarr_group.get("peak_to_peak", None)
+        spikes_per_units = zarr_group.get("spikes_per_unit", None)
+
+        # TODO: get probe name from probe metadata
+
         channel_depths = templates.get_channel_locations()[:, 1]
 
         depths = np.zeros(num_units)
@@ -80,32 +90,54 @@ def consolidate_datasets():
             best_channel_idxs = best_channel_idxs[:]
             for i, best_channel_idx in enumerate(best_channel_idxs):
                 depths[i] = channel_depths[best_channel_idx]
-                amps[i] = np.ptp(templates.templates_array[i, :, best_channel_idx])
+                if peak_to_peaks is None:
+                    amps[i] = np.ptp(templates.templates_array[i, :, best_channel_idx])
+                else:
+                    amps[i] = peak_to_peaks[i, best_channel_idx]
         else:
             depths = np.nan
             amps = np.nan
-            best_channels = ["unknwown"] * num_units
+            best_channel_idxs = [-1] * num_units
+            spikes_per_units = [-1] * num_units
         if brain_areas is not None:
             brain_areas = brain_areas[:]
         else:
             brain_areas = ["unknwown"] * num_units
+
         new_entry = pd.DataFrame(
             data={
                 "dataset": dataset_list,
+                "dataset_path": dataset_path,
+                "probe": ["Neuropixels1.0"] * num_units,
                 "template_index": template_idxs,
-                "best_channel_id": best_channels,
+                "best_channel_id": best_channel_idxs,
                 "brain_area": brain_areas,
-                "depth": depths,
-                "amplitude": amps,
+                "depth_along_probe": depths,
+                "amplitude_uv": amps,
+                "spikes_per_unit": spikes_per_units,
             }
         )
-        templates_df = pd.concat([templates_df, new_entry])
+        if templates_df is None:
+            templates_df = new_entry
+        else:
+            templates_df = pd.concat([templates_df, new_entry])
+        print(f"Added {num_units} units from dataset {dataset}")
 
+    templates_df.reset_index(inplace=True)
     templates_df.to_csv("templates.csv", index=False)
 
     # Upload to S3
-    bc.upload_file("templates.csv", HYBRID_BUCKET, "templates.csv")
+    if not dry_run:
+        bc.upload_file("templates.csv", bucket, "templates.csv")
+    else:
+        print("Dry run, not uploading")
+        print(templates_df)
+
+    return templates_df
 
 
 if __name__ == "__main__":
-    consolidate_datasets()
+    params = parser.parse_args()
+    DRY_RUN = params.dry_run
+    SKIP_TEST = not params.no_skip_test
+    templates_df = consolidate_datasets(dry_run=DRY_RUN, skip_test_folder=SKIP_TEST)
