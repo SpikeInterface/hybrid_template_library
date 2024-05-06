@@ -6,10 +6,12 @@ import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 function CodeSnippet({ selectedTemplates }) {
   const generatePythonCode = (selectedTemplates) => {
     const selectedUnitIndicesString = JSON.stringify([...selectedTemplates], null, 2);
-    return `from spikeinterface.hybrid import generate_recording_from_template_database
+    return `from spikeinterface.generation import get_templates_from_database, generate_hybrid_recording
 selected_unit_indices = ${selectedUnitIndicesString}
-durations = [1.0]  # Specify the duration for each template
-recording = generate_recording_from_template_database(selected_unit_indices, durations=durations)`;
+templates = get_templates_from_database(selected_unit_indices)
+
+# recording is an existing spikeinterface.BaseRecording
+recording_hybrid = get_templates_from_database(recording, templates=templates)`;
   };
 
   const pythonCode = generatePythonCode(selectedTemplates);
