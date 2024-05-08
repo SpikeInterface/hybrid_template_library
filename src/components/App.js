@@ -8,7 +8,7 @@ import "../styles/App.css";
 //const url = "http://localhost:8000/zarr_store.zarr";
 const url = "https://spikeinterface-template-database.s3.us-east-2.amazonaws.com/test_templates";
 
-const url = process.env.TEST_URL || "https://s3.amazonaws.com/my-bucket/templates";
+//const url = process.env.TEST_URL || "https://s3.amazonaws.com/my-bucket/templates";
 
 
 function App() {
@@ -20,7 +20,7 @@ function App() {
   const batchSize = 10;
   const [dataDictionary, setDataDictionary] = useState({});
 
-  const loadTempalteIndices = () => {
+  const loadTemplateIndices = () => {
     const nextIndex = templateIndices.length === 0 ? 0 : Math.max(...templateIndices) + 1;
     const newIndices = Array.from({ length: batchSize }, (_, i) => i + nextIndex);
 
@@ -82,7 +82,7 @@ function App() {
   };
 
   useEffect(() => {
-    loadTempalteIndices();
+    loadTemplateIndices();
     loadSessionData();
   }, []);
 
@@ -104,7 +104,7 @@ function App() {
         ))}
       </div>
       {hasMore && (
-        <button onClick={loadTempalteIndices} className="load-more-button">
+        <button onClick={loadTemplateIndices} className="load-more-button">
           Load More Templates
         </button>
       )}
