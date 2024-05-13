@@ -36,7 +36,6 @@ dandiset_paths_with_ecephys = [
 
 for asset_path in dandiset_paths_with_ecephys:
 
-    asset_path = dandiset_paths_with_ecephys[3]
     recording_asset = dandiset.get_asset_by_path(path=asset_path)
     url = recording_asset.get_content_url(follow_redirects=True, strip_query=True)
     file_path = url
@@ -56,7 +55,6 @@ for asset_path in dandiset_paths_with_ecephys:
     pids, probes = one_instance.eid2pid(eid)
 
     # Let's select the probe
-
     probe_number = electrical_series_path.split("Ap")[-1]
 
     sorting_pid = None
@@ -87,7 +85,6 @@ for asset_path in dandiset_paths_with_ecephys:
         )
     )
 
-    # take first and last minute
     sampling_frequency_recording = pre_processed_recording.sampling_frequency
     sorting_sampling_frequency = sorting.sampling_frequency
     num_samples = pre_processed_recording.get_num_samples()
@@ -103,7 +100,6 @@ for asset_path in dandiset_paths_with_ecephys:
         start_frame=start_frame_recording, end_frame=end_frame_recording
     )
 
-    # num_samples = sorting.get_num_frames()
     samples_before_end = int(minutes * 60.0 * sorting_sampling_frequency)
     start_frame_sorting = num_samples - samples_before_end
     end_frame_sorting = num_samples
@@ -123,7 +119,7 @@ for asset_path in dandiset_paths_with_ecephys:
     template_extension_parameters = {
         "ms_before": 3.0,
         "ms_after": 5.0,
-        "operators": ["average", "std"],
+        "operators": ["average"],
     }
 
     extensions = {
