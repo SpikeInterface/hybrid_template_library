@@ -122,7 +122,7 @@ def consolidate_datasets(
             templates_df = pd.concat([templates_df, new_entry])
         print(f"Added {num_units} units from dataset {dataset}")
 
-    templates_df.reset_index(inplace=True)
+    templates_df.reset_index(inplace=True, drop=True)
     templates_df.to_csv("templates.csv", index=False)
 
     # Upload to S3
