@@ -13,7 +13,7 @@ parser.add_argument("--bucket", type=str, help="S3 bucket name", default="spikei
 
 
 
-def list_zarr_directories(bucket_name, boto_client=None):
+def list_zarr_directories(bucket_name, boto_client=None) -> list[str]:
     """Lists top-level Zarr directory keys in an S3 bucket.
 
     Parameters
