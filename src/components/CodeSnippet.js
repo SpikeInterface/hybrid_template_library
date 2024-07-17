@@ -6,9 +6,11 @@ import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 function CodeSnippet({ selectedTemplates }) {
   const generatePythonCode = (selectedTemplates) => {
     const selectedUnitIndicesString = JSON.stringify([...selectedTemplates], null, 2);
-    return `from spikeinterface.generation import get_templates_from_database, generate_hybrid_recording
+    return `from spikeinterface.generation import fetch_templates_database_info, query_templates_from_database, generate_hybrid_recording
 selected_unit_indices = ${selectedUnitIndicesString}
-templates = get_templates_from_database(selected_unit_indices)
+
+templates_info = fetch_templates_database_info()
+templates = query_templates_from_database(templates_info.loc[selected_unit_indices])
 
 # recording is an existing spikeinterface.BaseRecording
 recording_hybrid = get_templates_from_database(recording, templates=templates)`;
