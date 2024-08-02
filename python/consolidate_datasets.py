@@ -1,16 +1,18 @@
+from pathlib import Path
+from argparse import ArgumentParser
+
 import boto3
 import pandas as pd
 import zarr
 import numpy as np
-from argparse import ArgumentParser
+from tqdm.auto import tqdm
 
 from spikeinterface.core import Templates
 
 parser = ArgumentParser(description="Consolidate datasets from spikeinterface template database")
 
 parser.add_argument("--dry-run", action="store_true", help="Dry run (no upload)")
-parser.add_argument("--bucket", type=str, help="S3 bucket name", default="spikeinterface-template-database")
-
+parser.add_argument("--verbose", action="store_true", help="Print additional information during processing")
 
 
 def list_zarr_directories(bucket_name, boto_client=None) -> list[str]:
@@ -30,17 +32,18 @@ def list_zarr_directories(bucket_name, boto_client=None) -> list[str]:
         found in the bucket.
     """
 
-    boto_client = boto_client or boto3.client('s3')
-    zarr_directories = set() 
+    boto_client = boto_client or boto3.client("s3")
+    zarr_directories = set()
 
-    paginator = boto_client.get_paginator('list_objects_v2')
-    for page in paginator.paginate(Bucket=bucket_name, Delimiter='/'):
-        for prefix in page.get('CommonPrefixes', []):
-            key = prefix['Prefix']
-            if key.endswith('.zarr/'):
-                zarr_directories.add(key.rstrip('/'))
+    paginator = boto_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket_name, Delimiter="/"):
+        for prefix in page.get("CommonPrefixes", []):
+            key = prefix["Prefix"]
+            if key.endswith(".zarr/"):
+                zarr_directories.add(key.rstrip("/"))
 
-    return list(zarr_directories)  
+    return list(zarr_directories)
+
 
 def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
     """Consolidates data from Zarr datasets within an S3 bucket.
@@ -62,8 +65,8 @@ def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
     FileNotFoundError
         If no Zarr datasets are found in the specified bucket.
     """
-    
-    bucket="spikeinterface-template-database"
+
+    bucket = "spikeinterface-template-database"
     boto_client = boto3.client("s3")
 
     # Get list of Zarr directories, excluding test datasets
@@ -78,9 +81,10 @@ def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
 
     # Initialize list to collect DataFrames for each dataset
     all_dataframes = []
-
-    for dataset in zarr_datasets:
-        print(f"Processing dataset {dataset}")
+    desc = "Processing Zarr datasets"
+    for dataset in tqdm(zarr_datasets, desc=desc, unit=" datasets processed", disable=not verbose):
+        if verbose:
+            print(f"Processing dataset: {dataset}")
         zarr_path = f"s3://{bucket}/{dataset}"
         zarr_group = zarr.open_consolidated(zarr_path, storage_options=dict(anon=True))
         templates = Templates.from_zarr_group(zarr_group)
@@ -122,19 +126,29 @@ def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
     # Concatenate all DataFrames into a single DataFrame
     templates_df = pd.concat(all_dataframes, ignore_index=True)
 
-    templates_df.to_csv("templates.csv", index=False)
+    templates_file_name = "templates.csv"
+    local_template_folder = Path("./build/")
+    local_template_info_file_path = local_template_folder / templates_file_name
+    templates_df.to_csv(local_template_info_file_path, index=False)
 
     # Upload to S3
-    if not dry_run:
-        boto_client.upload_file("templates.csv", bucket, "templates.csv")
+    if dry_run:
+        print("Dry run: skipping upload to S3")
+    else:
+        boto_client.upload_file(
+            Filename=local_template_info_file_path,
+            Bucket=bucket,
+            Key=templates_file_name,
+        )
 
     if verbose:
-        print("Dry run, not uploading")
         print(templates_df)
 
     return templates_df
 
+
 if __name__ == "__main__":
     params = parser.parse_args()
-    DRY_RUN = params.dry_run
-    templates_df = consolidate_datasets(dry_run=DRY_RUN)
+    dry_run = params.dry_run
+    verbose = params.verbose
+    templates_df = consolidate_datasets(dry_run=dry_run, verbose=verbose)
