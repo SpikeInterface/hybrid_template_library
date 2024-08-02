@@ -259,7 +259,7 @@ for asset_path in dandiset_paths:
         # Do a check for the expected shape of the templates
         number_of_units = sorting.get_num_units()
         number_of_temporal_samples = target_nbefore + target_nafter
-        number_of_channels = pre_processed_recording.get_number_of_channels()
+        number_of_channels = pre_processed_recording.get_num_channels()
         expected_shape = (number_of_units, number_of_temporal_samples, number_of_channels)
         assert templates_extension_data.templates_array.shape == expected_shape
 
