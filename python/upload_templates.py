@@ -207,9 +207,18 @@ for asset_path in dandiset_paths:
             "method": "all",
         }
 
+        # Correct for round mismatches in the number of temporal samples in conversion from seconds to samples
+        target_ms_before = 3.0
+        target_ms_after = 5.0
+        expected_fs = 30_000
+        target_nbefore = int(target_ms_before / 1000 * expected_fs)
+        target_nafter = int(target_ms_after / 1000 * expected_fs)
+        ms_before_corrected = target_nbefore / recording.sampling_frequency * 1000
+        ms_after_corrected = target_nafter / recording.sampling_frequency * 1000
+
         template_extension_parameters = {
-            "ms_before": 3.0,
-            "ms_after": 5.0,
+            "ms_before": ms_before_corrected,
+            "ms_after": ms_after_corrected,
             "operators": ["average"],
         }
 
@@ -246,6 +255,13 @@ for asset_path in dandiset_paths:
 
         templates_extension = analyzer.get_extension("templates")
         templates_extension_data = templates_extension.get_data(outputs="Templates")
+
+        # Do a check for the expected shape of the templates
+        number_of_units = sorting.get_num_units()
+        number_of_temporal_samples = target_nbefore + target_nafter
+        number_of_channels = pre_processed_recording.get_number_of_channels()
+        expected_shape = (number_of_units, number_of_temporal_samples, number_of_channels)
+        assert templates_extension_data.templates_array.shape == expected_shape
 
         templates_extension = analyzer.get_extension("templates")
         templates_object = templates_extension.get_data(outputs="Templates")
