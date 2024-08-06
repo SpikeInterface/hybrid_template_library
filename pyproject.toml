@@ -1,3 +1,64 @@
+[project]
+name = "hybrid_template_library"
+version = "0.1.0"
+authors = [
+  { name = "Alessio Buccino", email = "alessiop.buccino@gmail.com" },
+  { name = "Samuel Garcia", email = "sam.garcia.die@gmail.com" },
+  { name = "Heberto Mayorquin", email = "h.mayorquin@gmail.com" },
+]
+description = "Python toolkit for analysis, visualization, and comparison of spike sorting output"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "spikeinterface >= 0.101",
+  "tqdm",
+  "pynwb>=2.8",
+  "remfile==0.1",
+  "dandi==0.62.2",
+  "boto3==1.34",
+  "ONE-api==2.7",
+  "ibllib==2.36",
+  "s3fs==2024.6",
+]
+
+[project.urls]
+repository = "https://github.com/SpikeInterface/hybrid_template_library"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch]
+# Specify the directories to include in the build
+sources = ["python"]
+
+# Optional: Specify the files to include in the build
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "python/**", # Include all files in the python directory
+  "LICENSE",
+  "README.md",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+  "python/**", # Include all files in the python directory
+  "LICENSE",
+  "README.md",
+]
+
 [tool.black]
 line-length = 128
 target-version = ['py37', 'py38', 'py39']
