@@ -44,7 +44,6 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
     import spikeinterface.generation as sgen
 
     templates_info = sgen.fetch_templates_database_info()
-
     templates_to_remove = templates_info.query(f"spikes_per_unit < {min_spikes}")
 
     if len(templates_to_remove) > 0:
@@ -68,7 +67,6 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
                 "spikes_per_unit",
                 "brain_area",
                 "peak_to_peak",
-                "channel_noise_levels",
                 "unit_ids",
             ]
 
@@ -101,6 +99,42 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
                         print(f"\t\tDry run: {dset} - shape: {dataset_filtered.shape}")
             if not dry_run:
                 zarr.consolidate_metadata(zarr_root.store)
+
+
+def restore_noise_levels_ibl(datasets, one=None, dry_run=False, verbose=True):
+    """
+    This function will restore noise levels for IBL datasets.
+    """
+    import spikeinterface as si
+    import spikeinterface.extractors as se
+    import spikeinterface.generation as sgen
+
+    for dataset in datasets:
+        if verbose:
+            print(f"Processing dataset: {dataset}")
+        pid = dataset.split("_")[-1][:-5]
+        dataset_path = f"s3://spikeinterface-template-database/{dataset}"
+        recording = se.read_ibl_recording(pid=pid, load_sync_channel=False, stream_type="ap", one=one)
+
+        default_params = si.get_default_analyzer_extension_params("noise_levels")
+        if verbose:
+            print(f"\tComputing noise levels")
+        noise_levels = si.get_noise_levels(recording, return_scaled=True, **default_params)
+
+        if dry_run:
+            mode = "r"
+        else:
+            mode = "r+"
+        zarr_root = zarr.open(dataset_path, mode=mode)
+        if not dry_run:
+            if verbose:
+                print(f"\tRestoring noise levels")
+            zarr_root["channel_noise_levels"] = noise_levels
+            zarr.consolidate_metadata(zarr_root.store)
+        else:
+            if verbose:
+                print(f"\tCurrent shape: {zarr_root['channel_noise_levels'].shape}")
+                print(f"\tDry run: would restore noise levels: {noise_levels.shape}")
 
 
 def delete_templates_with_num_samples(dry_run=False):
