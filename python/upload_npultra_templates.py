@@ -1,6 +1,7 @@
 """
-This script constructs and uploads the templates from the Neuropixels datasets
-available from DANDI. The templates are constructed using the spikeinterface package and are saved to a
+This script constructs and uploads the templates from the Neuropixels Ultra dataset
+form Steinmetz and Ye, 2022. The dataset is hosted on Figshare at https://doi.org/10.6084/m9.figshare.19493588.v2
+The templates and relevant metadata are packaged into a `spikeinterface.Templates` and saved to a
 Zarr file. The Zarr file is then uploaded to an S3 bucket hosted by CatalystNeuro for storage and sharing.
 
 The s3 bucket "spikeinterface-template-database" is used by the SpikeInterface hybrid framework to construct hybrid
