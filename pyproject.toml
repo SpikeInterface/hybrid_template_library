@@ -21,6 +21,7 @@ classifiers = [
 
 dependencies = [
   "spikeinterface >= 0.101",
+  "MEArec",
   "tqdm",
   "pynwb>=2.8",
   "remfile==0.1",

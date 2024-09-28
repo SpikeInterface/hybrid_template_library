@@ -38,7 +38,7 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
     """
     This function will delete templates associated to spike trains with too few spikes.
 
-    The initial database was in fact created without a minimum number of spikes per unit, 
+    The initial database was in fact created without a minimum number of spikes per unit,
     so some units have very few spikes and possibly a noisy template.
     """
     import spikeinterface.generation as sgen
@@ -49,7 +49,9 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
 
     if len(templates_to_remove) > 0:
         if verbose:
-            print(f"Removing {len(templates_to_remove)}/{len(templates_info)} templates with less than {min_spikes} spikes")
+            print(
+                f"Removing {len(templates_to_remove)}/{len(templates_info)} templates with less than {min_spikes} spikes"
+            )
         datasets = np.unique(templates_to_remove["dataset"])
 
         for d_i, dataset in enumerate(datasets):
@@ -59,7 +61,7 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
             template_indices_to_remove = templates_in_dataset.template_index.values
             s3_path = templates_in_dataset.dataset_path.values[0]
 
-            # to filter from the zarr dataset: 
+            # to filter from the zarr dataset:
             datasets_to_filter = [
                 "templates_array",
                 "best_channel_index",
@@ -84,26 +86,32 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
                 print(f"\tRemoving {n_original_units - n_units_to_keep} templates from {n_original_units}")
             for dset in datasets_to_filter:
                 dataset_original = zarr_root[dset]
+                if len(dataset_original) == n_units_to_keep:
+                    print(f"\t\tDataset: {dset} - shape: {dataset_original.shape} - already updated")
+                    continue
                 dataset_filtered = dataset_original[unit_indices_to_keep]
                 if not dry_run:
                     if verbose:
                         print(f"\t\tUpdating: {dset} - shape: {dataset_filtered.shape}")
+                    if dataset_filtered.dtype.kind == "O":
+                        dataset_filtered = dataset_filtered.astype(str)
                     zarr_root[dset] = dataset_filtered
                 else:
                     if verbose:
                         print(f"\t\tDry run: {dset} - shape: {dataset_filtered.shape}")
             if not dry_run:
                 zarr.consolidate_metadata(zarr_root.store)
-            
+
+
 def delete_templates_with_num_samples(dry_run=False):
     """
-    This function will delete templates with number of samples, 
+    This function will delete templates with number of samples,
     which were not corrected for in the initial database.
     """
     bucket = "spikeinterface-template-database"
     boto_client = boto3.client("s3")
-    verbose = True 
-    
+    verbose = True
+
     templates_to_erase_from_bucket = [
         "000409_sub-KS084_ses-1b715600-0cbc-442c-bd00-5b0ac2865de1_behavior+ecephys+image_bbe6ebc1-d32f-42dd-a89c-211226737deb.zarr",
         "000409_sub-KS086_ses-e45481fa-be22-4365-972c-e7404ed8ab5a_behavior+ecephys+image_f2a098e7-a67e-4125-92d8-36fc6b606c45.zarr",
@@ -118,7 +126,9 @@ def delete_templates_with_num_samples(dry_run=False):
         "000409_sub-KS096_ses-f819d499-8bf7-4da0-a431-15377a8319d5_behavior+ecephys+image_4ea45238-55b1-4d54-ba92-efa47feb9f57.zarr",
     ]
     existing_templates = list_zarr_directories(bucket, boto_client=boto_client)
-    templates_to_erase_from_bucket = [template for template in templates_to_erase_from_bucket if template in existing_templates]
+    templates_to_erase_from_bucket = [
+        template for template in templates_to_erase_from_bucket if template in existing_templates
+    ]
     if dry_run:
         if verbose:
             print(f"Would erase {len(templates_to_erase_from_bucket)} templates from bucket: {bucket}")

@@ -1,12 +1,17 @@
 """
 This script constructs and uploads the templates from the International Brain Laboratory (IBL) datasets
 available from DANDI (https://dandiarchive.org/dandiset/000409?search=IBL&pos=3). 
-The templates are constructed using the spikeinterface package and are saved to a
-Zarr file. The Zarr file is then uploaded to an S3 bucket hosted by CatalystNeuro for storage and sharing.
 
-The s3 bucket "spikeinterface-template-database" is used by the SpikeInterface hybrid framework to construct hybrid
-recordings.
+Templates are extracted by combining the raw data from the NWB files on DANDI with the spike trains form
+the Alyx ONE database. Only the units that passed the IBL quality control are used.
+To minimize the amount of drift in the templates, only the last 30 minutes of the recording are used. 
+The raw recordings are pre-processed with a high-pass filter and a common median reference prior to 
+template extraction. Units with less than 50 spikes are excluded from the template database.
+
+Once the templates are constructed they are saved to a Zarr file which is then uploaded to 
+"spikeinterface-template-database" bucket (hosted by CatalystNeuro).
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -294,7 +299,9 @@ for asset_path in dandiset_paths:
 
         if upload_data:
             # Create a S3 file system object with explicit credentials
-            s3_kwargs = dict(anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs)
+            s3_kwargs = dict(
+                anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs
+            )
             s3 = s3fs.S3FileSystem(**s3_kwargs)
 
             # Specify the S3 bucket and path

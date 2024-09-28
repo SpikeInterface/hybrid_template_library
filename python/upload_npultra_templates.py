@@ -1,12 +1,15 @@
 """
 This script constructs and uploads the templates from the Neuropixels Ultra dataset
 form Steinmetz and Ye, 2022. The dataset is hosted on Figshare at https://doi.org/10.6084/m9.figshare.19493588.v2
-The templates and relevant metadata are packaged into a `spikeinterface.Templates` and saved to a
-Zarr file. The Zarr file is then uploaded to an S3 bucket hosted by CatalystNeuro for storage and sharing.
 
-The s3 bucket "spikeinterface-template-database" is used by the SpikeInterface hybrid framework to construct hybrid
-recordings.
+Since the templates in the dataset have rather short cut outs, which might negatively interfere with 
+hybrid spike injections, the templates are padded and smoothed using the `MEArec` package so that they
+end up having 240 samples (90 before, 150 after the peak).
+
+Once the templates are constructed they are saved to a Zarr file which is then uploaded to 
+"spikeinterface-template-database" bucket (hosted by CatalystNeuro).
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -18,7 +21,27 @@ import numcodecs
 import probeinterface as pi
 import spikeinterface as si
 
+from MEArec.tools import pad_templates, sigmoid
+
+
+def smooth_edges(templates, pad_samples, smooth_percent=0.5, smooth_strength=1):
+    # smooth edges
+    sigmoid_samples = int(smooth_percent * pad_samples[0]) // 2 * 2
+    sigmoid_x = np.arange(-sigmoid_samples // 2, sigmoid_samples // 2)
+    b = smooth_strength
+    sig = sigmoid(sigmoid_x, b) + 0.5
+    window = np.ones(templates.shape[-1])
+    window[:sigmoid_samples] = sig
+    window[-sigmoid_samples:] = sig[::-1]
+
+    templates *= window
+    return templates
+
+
+# parameters
 min_spikes_per_unit = 50
+target_nbefore = 90
+target_nafter = 150
 upload_data = False
 
 npultra_templates_path = Path("/home/alessio/Documents/Data/Templates/NPUltraWaveforms/")
@@ -54,23 +77,50 @@ unit_ids_enough_spikes = spikes_per_unit >= min_spikes_per_unit
 unit_ids = unit_ids[unit_ids_enough_spikes]
 spikes_per_unit = spikes_per_unit[unit_ids_enough_spikes]
 
-# sort the units by unit_id
+# Sort the units by unit_id
 sort_unit_indices = np.argsort(unit_ids)
-unit_itd = unit_ids[sort_unit_indices]
+unit_ids = unit_ids[sort_unit_indices].astype(int)
 spikes_per_unit = spikes_per_unit[sort_unit_indices]
 brain_area_acronym = brain_area_acronym[sort_unit_indices]
 
-# Create Templates object
+# Process the templates to make them smooth
 nbefore = 40
 sampling_frequency = 30000
+num_samples = templates_array.shape[1]
+nafter = num_samples - nbefore
 
+pad_samples = [target_nbefore - nbefore, target_nafter - nafter]
+
+# MEArec needs swap axes
+print("Padding and smoothing templates")
+templates_array_swap = templates_array.swapaxes(1, 2)
+tmp_templates_file = "templates_padded.raw"
+templates_padded_swap = pad_templates(
+    templates_array_swap,
+    pad_samples,
+    drifting=False,
+    dtype="float",
+    verbose=False,
+    n_jobs=-1,
+    tmp_file=tmp_templates_file,
+    parallel=True,
+)
+templates_padded = templates_padded_swap.swapaxes(1, 2)
+Path(tmp_templates_file).unlink()
+
+# smooth edges
+templates_smoothed_swap = smooth_edges(templates_padded_swap, pad_samples)
+templates_smoothed = templates_smoothed_swap.swapaxes(1, 2)
+
+# Create Templates object
+print("Creating Templates object")
 templates_ultra = si.Templates(
-    templates_array=templates_array,
+    templates_array=templates_smoothed,
     sampling_frequency=sampling_frequency,
     nbefore=nbefore,
     unit_ids=unit_ids,
     probe=probe,
-    is_scaled=True
+    is_scaled=True,
 )
 
 best_channel_index = si.get_template_extremum_channel(templates_ultra, mode="peak_to_peak", outputs="index")

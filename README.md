@@ -1,10 +1,49 @@
-# hybrid_template_library
-Library of templates to create hybrid data for spike sorting benchmarks
-
-[click here for access to the library](https://spikeinterface.github.io/hybrid_template_library/)
+# SpikeInterface Hybrid Template Library
 
 
-## Testing locally
+This repo contains a set of tools to construct and interact with a library of hybrid templates for spike sorting benchmarks.
+
+The library is made of several datasets stored a zarr file and can be accessed through the spikeinterface library. 
+The library is also accessible through a web-app that allows users to browse the templates and download them for 
+use in their spike sorting benchmarks.
+
+
+## Template sources
+
+The following datasets are available in the library:
+
+- [IBL](https://dandiarchive.org/dandiset/000409?search=IBL&pos=3): Neuropixels 1.0 templates from the IBL Brain Wide Map dataset
+- [Steinmetz and Ye. 2022](https://doi.org/10.6084/m9.figshare.19493588.v2): Neuropixels Ultra templates from Steinmetz and Ye. 2022
+
+The templates have been processed and stored with the `python` scripts in the `python/scripts` folder and are stored in `zarr`
+format in the `s3://spikeinterface-template-library` bucket hosted on `AWS S3` by [CatalystNeuro](https://www.catalystneuro.com/).
+
+
+## Accessing the data through `SpikeInterface`
+
+The library can be accessed through the `spikeinterface` library using the `generation` module.
+The following code shows how to access the library to fetch a dataframe with the available templates
+and download the templates corresponing to a specific user query:
+
+```python
+import spikeinterface.generation as sgen
+
+templates_info = sgen.fetch_templates_database_info()
+
+# select templates with amplitude between 200 and 250uV
+templates_info_selected = templates_info.query('amplitude_uv > 200 and amplitude_uv < 250')
+templates_selected = sgen.sgen.query_templates_from_database(templates_info_selected)
+```
+
+For a more comprehensive example on how to construct hybrid recordings from the template library and run spike sorting
+benchmarks, please refer to the SpikeInterface tutorial on [Hybrid recordings](https://spikeinterface.readthedocs.io/en/latest/how_to/benchmark_with_hybrid_recordings.html).
+
+## Live Web-App
+
+The template library can be browsed through a web-app (source code included in this repo). The web-app is hosted on github pages and can be accessed through the following link: [https://spikeinterface.github.io/hybrid_template_library/](https://spikeinterface.github.io/hybrid_template_library/)
+
+
+### Testing locally
 
 How to run a python server for testing zarr access
 
@@ -38,10 +77,10 @@ python -c "from http.server import HTTPServer, SimpleHTTPRequestHandler; import 
 ```
 
 
-Then you run the npm script to start the server and open the browser
+Then you run the `npm` script to start the server and open the browser
 
 ```bash
-export TEST_URL="http://localhost:8000/zarr_store.zarr"
+export TEST_URL="http://localhost:8000/test_zarr.zarr"
 npm run start
 ```
 
