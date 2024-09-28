@@ -1,6 +1,21 @@
+"""
+This script constructs and uploads the templates from the International Brain Laboratory (IBL) datasets
+available from DANDI (https://dandiarchive.org/dandiset/000409?search=IBL&pos=3). 
+The templates are constructed using the spikeinterface package and are saved to a
+Zarr file. The Zarr file is then uploaded to an S3 bucket hosted by CatalystNeuro for storage and sharing.
+
+The s3 bucket "spikeinterface-template-database" is used by the SpikeInterface hybrid framework to construct hybrid
+recordings.
+"""
 from pathlib import Path
 
 import numpy as np
+import s3fs
+import zarr
+import time
+import os
+import numcodecs
+
 from dandi.dandiapi import DandiAPIClient
 
 from spikeinterface.extractors import (
@@ -16,13 +31,7 @@ from spikeinterface.preprocessing import (
     highpass_filter,
 )
 
-import s3fs
-import zarr
-import numcodecs
-
 from one.api import ONE
-import time
-import os
 
 from consolidate_datasets import list_zarr_directories
 
@@ -55,6 +64,7 @@ client_kwargs = {"region_name": "us-east-2"}
 
 # Parameters
 minutes_by_the_end = 30  # How many minutes in the end of the recording to use for templates
+min_spikes_per_unit = 50
 upload_data = True
 overwite = False
 verbose = True
@@ -174,6 +184,10 @@ for asset_path in dandiset_paths:
 
         sorting_end = sorting.frame_slice(start_frame=start_frame_sorting, end_frame=end_frame_sorting)
 
+        spikes_per_unit = sorting_end.count_num_spikes_per_unit(outputs="array")
+        unit_indices_to_keep = np.where(spikes_per_unit >= min_spikes_per_unit)[0]
+        sorting_end = sorting_end.select_units(sorting_end.unit_ids[unit_indices_to_keep])
+
         # NWB Streaming is not working well with parallel pre=processing so we ave
         folder_path = Path.cwd() / "build" / "local_copy"
         folder_path.mkdir(exist_ok=True, parents=True)
@@ -263,6 +277,8 @@ for asset_path in dandiset_paths:
         expected_shape = (number_of_units, number_of_temporal_samples, number_of_channels)
         assert templates_extension_data.templates_array.shape == expected_shape
 
+        # TODO: skip templates with 0 amplitude!
+        # TODO: check for weird shapes
         templates_extension = analyzer.get_extension("templates")
         templates_object = templates_extension.get_data(outputs="Templates")
         unit_ids = templates_object.unit_ids

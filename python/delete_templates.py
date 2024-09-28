@@ -1,4 +1,7 @@
 import boto3
+import numpy as np
+import zarr
+
 from consolidate_datasets import list_zarr_directories
 
 
@@ -31,7 +34,72 @@ def delete_templates_from_s3(
         delete_template_from_s3(bucket_name, key, boto_client=boto_client)
 
 
-if __name__ == "__main__":
+def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
+    """
+    This function will delete templates associated to spike trains with too few spikes.
+
+    The initial database was in fact created without a minimum number of spikes per unit, 
+    so some units have very few spikes and possibly a noisy template.
+    """
+    import spikeinterface.generation as sgen
+
+    templates_info = sgen.fetch_templates_database_info()
+
+    templates_to_remove = templates_info.query(f"spikes_per_unit < {min_spikes}")
+
+    if len(templates_to_remove) > 0:
+        if verbose:
+            print(f"Removing {len(templates_to_remove)}/{len(templates_info)} templates with less than {min_spikes} spikes")
+        datasets = np.unique(templates_to_remove["dataset"])
+
+        for d_i, dataset in enumerate(datasets):
+            if verbose:
+                print(f"\tCleaning dataset {d_i + 1}/{len(datasets)}")
+            templates_in_dataset = templates_to_remove.query(f"dataset == '{dataset}'")
+            template_indices_to_remove = templates_in_dataset.template_index.values
+            s3_path = templates_in_dataset.dataset_path.values[0]
+
+            # to filter from the zarr dataset: 
+            datasets_to_filter = [
+                "templates_array",
+                "best_channel_index",
+                "spikes_per_unit",
+                "brain_area",
+                "peak_to_peak",
+                "channel_noise_levels",
+                "unit_ids",
+            ]
+
+            # open zarr in append mode
+            if dry_run:
+                mode = "r"
+            else:
+                mode = "r+"
+            zarr_root = zarr.open(s3_path, mode=mode)
+            all_unit_indices = np.arange(len(zarr_root["unit_ids"]))
+            n_original_units = len(all_unit_indices)
+            unit_indices_to_keep = np.delete(all_unit_indices, template_indices_to_remove)
+            n_units_to_keep = len(unit_indices_to_keep)
+            if verbose:
+                print(f"\tRemoving {n_original_units - n_units_to_keep} templates from {n_original_units}")
+            for dset in datasets_to_filter:
+                dataset_original = zarr_root[dset]
+                dataset_filtered = dataset_original[unit_indices_to_keep]
+                if not dry_run:
+                    if verbose:
+                        print(f"\t\tUpdating: {dset} - shape: {dataset_filtered.shape}")
+                    zarr_root[dset] = dataset_filtered
+                else:
+                    if verbose:
+                        print(f"\t\tDry run: {dset} - shape: {dataset_filtered.shape}")
+            if not dry_run:
+                zarr.consolidate_metadata(zarr_root.store)
+            
+def delete_templates_with_num_samples(dry_run=False):
+    """
+    This function will delete templates with number of samples, 
+    which were not corrected for in the initial database.
+    """
     bucket = "spikeinterface-template-database"
     boto_client = boto3.client("s3")
     verbose = True 
@@ -51,6 +119,10 @@ if __name__ == "__main__":
     ]
     existing_templates = list_zarr_directories(bucket, boto_client=boto_client)
     templates_to_erase_from_bucket = [template for template in templates_to_erase_from_bucket if template in existing_templates]
-    if verbose:
-        print(f"Erasing {len(templates_to_erase_from_bucket)} templates from bucket: {bucket}")
-    delete_templates_from_s3(bucket, templates_to_erase_from_bucket, boto_client=boto_client)
+    if dry_run:
+        if verbose:
+            print(f"Would erase {len(templates_to_erase_from_bucket)} templates from bucket: {bucket}")
+    else:
+        if verbose:
+            print(f"Erasing {len(templates_to_erase_from_bucket)} templates from bucket: {bucket}")
+        delete_templates_from_s3(bucket, templates_to_erase_from_bucket, boto_client=boto_client)
