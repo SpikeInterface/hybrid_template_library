@@ -1,6 +1,26 @@
+"""
+This script constructs and uploads the templates from the International Brain Laboratory (IBL) datasets
+available from DANDI (https://dandiarchive.org/dandiset/000409?search=IBL&pos=3). 
+
+Templates are extracted by combining the raw data from the NWB files on DANDI with the spike trains form
+the Alyx ONE database. Only the units that passed the IBL quality control are used.
+To minimize the amount of drift in the templates, only the last 30 minutes of the recording are used. 
+The raw recordings are pre-processed with a high-pass filter and a common median reference prior to 
+template extraction. Units with less than 50 spikes are excluded from the template database.
+
+Once the templates are constructed they are saved to a Zarr file which is then uploaded to 
+"spikeinterface-template-database" bucket (hosted by CatalystNeuro).
+"""
+
 from pathlib import Path
 
 import numpy as np
+import s3fs
+import zarr
+import time
+import os
+import numcodecs
+
 from dandi.dandiapi import DandiAPIClient
 
 from spikeinterface.extractors import (
@@ -16,13 +36,7 @@ from spikeinterface.preprocessing import (
     highpass_filter,
 )
 
-import s3fs
-import zarr
-import numcodecs
-
 from one.api import ONE
-import time
-import os
 
 from consolidate_datasets import list_zarr_directories
 
@@ -55,6 +69,7 @@ client_kwargs = {"region_name": "us-east-2"}
 
 # Parameters
 minutes_by_the_end = 30  # How many minutes in the end of the recording to use for templates
+min_spikes_per_unit = 50
 upload_data = True
 overwite = False
 verbose = True
@@ -174,6 +189,10 @@ for asset_path in dandiset_paths:
 
         sorting_end = sorting.frame_slice(start_frame=start_frame_sorting, end_frame=end_frame_sorting)
 
+        spikes_per_unit = sorting_end.count_num_spikes_per_unit(outputs="array")
+        unit_indices_to_keep = np.where(spikes_per_unit >= min_spikes_per_unit)[0]
+        sorting_end = sorting_end.select_units(sorting_end.unit_ids[unit_indices_to_keep])
+
         # NWB Streaming is not working well with parallel pre=processing so we ave
         folder_path = Path.cwd() / "build" / "local_copy"
         folder_path.mkdir(exist_ok=True, parents=True)
@@ -263,6 +282,8 @@ for asset_path in dandiset_paths:
         expected_shape = (number_of_units, number_of_temporal_samples, number_of_channels)
         assert templates_extension_data.templates_array.shape == expected_shape
 
+        # TODO: skip templates with 0 amplitude!
+        # TODO: check for weird shapes
         templates_extension = analyzer.get_extension("templates")
         templates_object = templates_extension.get_data(outputs="Templates")
         unit_ids = templates_object.unit_ids
@@ -278,7 +299,9 @@ for asset_path in dandiset_paths:
 
         if upload_data:
             # Create a S3 file system object with explicit credentials
-            s3_kwargs = dict(anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs)
+            s3_kwargs = dict(
+                anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs
+            )
             s3 = s3fs.S3FileSystem(**s3_kwargs)
 
             # Specify the S3 bucket and path

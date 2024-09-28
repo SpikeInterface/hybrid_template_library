@@ -101,8 +101,12 @@ def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
 
         depth_best_channel = channel_depths[best_channel_indices]
         peak_to_peak_best_channel = zarr_group["peak_to_peak"][template_indices, best_channel_indices]
-        noise_best_channel = zarr_group["channel_noise_levels"][best_channel_indices]
-        signal_to_noise_ratio_best_channel = peak_to_peak_best_channel / noise_best_channel
+        if "channel_noise_levels" not in zarr_group:
+            noise_best_channel = np.nan * np.zeros(num_units)
+            signal_to_noise_ratio_best_channel = np.nan * np.zeros(num_units)
+        else:
+            noise_best_channel = zarr_group["channel_noise_levels"][best_channel_indices]
+            signal_to_noise_ratio_best_channel = peak_to_peak_best_channel / noise_best_channel
 
         new_entry = pd.DataFrame(
             {
