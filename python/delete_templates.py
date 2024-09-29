@@ -80,12 +80,16 @@ def delete_templates_too_few_spikes(min_spikes=50, dry_run=False, verbose=True):
             n_original_units = len(all_unit_indices)
             unit_indices_to_keep = np.delete(all_unit_indices, template_indices_to_remove)
             n_units_to_keep = len(unit_indices_to_keep)
+
+            spikes_per_unit = zarr_root["spikes_per_unit"]
             if verbose:
+                print(f"\tMax spikes to remove: {spikes_per_unit[template_indices_to_remove]}")
                 print(f"\tRemoving {n_original_units - n_units_to_keep} templates from {n_original_units}")
             for dset in datasets_to_filter:
                 dataset_original = zarr_root[dset]
                 if len(dataset_original) == n_units_to_keep:
-                    print(f"\t\tDataset: {dset} - shape: {dataset_original.shape} - already updated")
+                    if verbose:
+                        print(f"\t\tDataset: {dset} - shape: {dataset_original.shape} - already updated")
                     continue
                 dataset_filtered = dataset_original[unit_indices_to_keep]
                 if not dry_run:
