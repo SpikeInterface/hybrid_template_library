@@ -282,7 +282,6 @@ for asset_path in dandiset_paths:
         expected_shape = (number_of_units, number_of_temporal_samples, number_of_channels)
         assert templates_extension_data.templates_array.shape == expected_shape
 
-        # TODO: skip templates with 0 amplitude!
         # TODO: check for weird shapes
         templates_extension = analyzer.get_extension("templates")
         templates_object = templates_extension.get_data(outputs="Templates")

@@ -18,6 +18,8 @@ import zarr
 import pandas as pd
 import os
 import numcodecs
+from tqdm.auto import tqdm
+
 import probeinterface as pi
 import spikeinterface as si
 
@@ -40,12 +42,13 @@ def smooth_edges(templates, pad_samples, smooth_percent=0.5, smooth_strength=1):
 
 # parameters
 min_spikes_per_unit = 50
+num_templates_per_dataset = 100
 target_nbefore = 90
 target_nafter = 150
 upload_data = False
 
 npultra_templates_path = Path("/home/alessio/Documents/Data/Templates/NPUltraWaveforms/")
-dataset_name = "steinmetz_ye_np_ultra_2022_figshare19493588v2.zarr"
+dataset_stem = "steinmetz_ye_np_ultra_2022_figshare19493588v2"
 
 # AWS credentials
 aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -117,42 +120,59 @@ print("Creating Templates object")
 templates_ultra = si.Templates(
     templates_array=templates_smoothed,
     sampling_frequency=sampling_frequency,
-    nbefore=nbefore,
+    nbefore=target_nbefore,
     unit_ids=unit_ids,
     probe=probe,
     is_scaled=True,
 )
+print(f"Full templates: {templates_ultra}")
 
-best_channel_index = si.get_template_extremum_channel(templates_ultra, mode="peak_to_peak", outputs="index")
-best_channel_index = list(best_channel_index.values())
+split_indices = np.arange(0, len(unit_ids), num_templates_per_dataset)
 
-if upload_data:
-    # Create a S3 file system object with explicit credentials
-    s3_kwargs = dict(anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs)
-    s3 = s3fs.S3FileSystem(**s3_kwargs)
+for i in tqdm(np.arange(len(split_indices)), desc="Uploading dataset in chunks"):
+    index = split_indices[i]
+    if i < len(split_indices) - 1:
+        s = slice(index, split_indices[i + 1])
+    else:
+        s = slice(index, len(unit_ids))
+    unit_ids_split = unit_ids[s]
+    brain_area_split = brain_area_acronym[s]
+    spikes_per_unit_split = spikes_per_unit[s]
 
-    # Specify the S3 bucket and path
-    s3_path = f"{bucket_name}/{dataset_name}"
-    store = s3fs.S3Map(root=s3_path, s3=s3)
-else:
-    folder_path = Path.cwd() / "build" / f"{dataset_name}"
-    folder_path.mkdir(exist_ok=True, parents=True)
-    store = zarr.DirectoryStore(str(folder_path))
+    templates_split = templates_ultra.select_units(unit_ids_split)
+    print(f"Creating dataset {i} with {len(unit_ids_split)} units")
+    dataset_name = f"{dataset_stem}_{i}.zarr"
 
-# Save results to Zarr
-zarr_group = zarr.group(store=store, overwrite=True)
-zarr_group.create_dataset(name="brain_area", data=brain_area, object_codec=numcodecs.VLenUTF8())
-zarr_group.create_dataset(name="spikes_per_unit", data=spikes_per_unit, chunks=None, dtype="uint32")
-zarr_group.create_dataset(
-    name="best_channel_index",
-    data=best_channel_index,
-    chunks=None,
-    dtype="uint32",
-)
-peak_to_peak = np.ptp(templates_array, axis=1)
-zarr_group.create_dataset(name="peak_to_peak", data=peak_to_peak)
+    best_channel_index = si.get_template_extremum_channel(templates_split, mode="peak_to_peak", outputs="index")
+    best_channel_index = list(best_channel_index.values())
 
-# Now you can create a Zarr array using this store
-templates_ultra.add_templates_to_zarr_group(zarr_group=zarr_group)
-zarr_group_s3 = zarr_group
-zarr.consolidate_metadata(zarr_group_s3.store)
+    if upload_data:
+        # Create a S3 file system object with explicit credentials
+        s3_kwargs = dict(anon=False, key=aws_access_key_id, secret=aws_secret_access_key, client_kwargs=client_kwargs)
+        s3 = s3fs.S3FileSystem(**s3_kwargs)
+
+        # Specify the S3 bucket and path
+        s3_path = f"{bucket_name}/{dataset_name}"
+        store = s3fs.S3Map(root=s3_path, s3=s3)
+    else:
+        folder_path = Path.cwd() / "build" / f"{dataset_name}"
+        folder_path.mkdir(exist_ok=True, parents=True)
+        store = zarr.DirectoryStore(str(folder_path))
+
+    # Save results to Zarr
+    zarr_group = zarr.group(store=store, overwrite=True)
+    zarr_group.create_dataset(name="brain_area", data=brain_area_split, object_codec=numcodecs.VLenUTF8())
+    zarr_group.create_dataset(name="spikes_per_unit", data=spikes_per_unit_split, chunks=None, dtype="uint32")
+    zarr_group.create_dataset(
+        name="best_channel_index",
+        data=best_channel_index,
+        chunks=None,
+        dtype="uint32",
+    )
+    peak_to_peak = np.ptp(templates_split.templates_array, axis=1)
+    zarr_group.create_dataset(name="peak_to_peak", data=peak_to_peak)
+
+    # Now you can create a Zarr array using this store
+    templates_split.add_templates_to_zarr_group(zarr_group=zarr_group)
+    zarr_group_s3 = zarr_group
+    zarr.consolidate_metadata(zarr_group_s3.store)

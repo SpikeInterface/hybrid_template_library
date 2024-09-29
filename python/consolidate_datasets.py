@@ -73,6 +73,7 @@ def consolidate_datasets(dry_run: bool = False, verbose: bool = False):
     zarr_datasets = list_zarr_directories(bucket_name=bucket, boto_client=boto_client)
     datasets_to_avoid = ["test_templates.zarr"]
     zarr_datasets = [d for d in zarr_datasets if d not in datasets_to_avoid]
+    zarr_datasets = sorted(zarr_datasets)
 
     if not zarr_datasets:
         raise FileNotFoundError(f"No Zarr datasets found in bucket: {bucket}")
